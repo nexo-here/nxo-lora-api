@@ -1,7 +1,7 @@
-require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const { DiffusionPipeline } = require("@xenova/transformers");
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import { DiffusionPipeline } from '@xenova/transformers';
 
 const app = express();
 app.use(cors());
