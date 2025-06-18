@@ -1,39 +1,56 @@
-const express = require("express");
-const axios = require("axios");
-const cors = require("cors");
 require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const { DiffusionPipeline } = require("@xenova/transformers");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
 app.use(cors());
 
-app.get("/", (req, res) => res.send("✅ LoRA API is live. Use /gen?prompt=your_prompt"));
+const port = process.env.PORT || 3000;
+
+let pipe = null;
+
+(async () => {
+  console.log("🔄 Loading base model...");
+  pipe = await DiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", {
+    use_auth_token: process.env.HUGGINGFACE_TOKEN,
+  });
+
+  console.log("🔄 Applying LoRA...");
+  await pipe.load_lora_weights("nexo-here/shohan-lora", {
+    weight_name: "shohan-lora.safetensors",
+    use_auth_token: process.env.HUGGINGFACE_TOKEN,
+  });
+
+  console.log("✅ LoRA applied, ready to generate!");
+})();
 
 app.get("/gen", async (req, res) => {
-  const prompt = req.query.prompt || "Shohan in a fantasy garden";
-  const loraUrl = "https://huggingface.co/nexo-here/shohan-lora/resolve/main/shohan-lora.safetensors";
+  const prompt = req.query.prompt || "Shohan in anime style";
 
   try {
-    const genRes = await axios.get("https://api.segmind.com/v1/sdxl-lora", {
-      headers: {
-        "x-api-key": process.env.SEGMIND_API_KEY
-      },
-      params: {
-        prompt: `Shohan, ${prompt}`,
-        lora_urls: loraUrl,
-        num_inference_steps: 28,
-        guidance_scale: 7
-      }
+    if (!pipe) {
+      return res.status(503).json({ error: "Model is still loading" });
+    }
+
+    const output = await pipe(prompt, {
+      guidance_scale: 7,
+      num_inference_steps: 25,
     });
 
-    res.json({ image: genRes.data.image_url });
-  } catch (err) {
-    console.error(err.response?.data || err.message);
+    const image = output.images[0];
+    const base64 = image.toString("base64");
+
+    res.json({
+      image: `data:image/png;base64,${base64}`,
+    });
+
+  } catch (e) {
+    console.error("❌ Image generation error:", e);
     res.status(500).json({ error: "Image generation failed" });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
+app.listen(port, () => {
+  console.log(`🚀 Server running at http://localhost:${port}`);
 });
