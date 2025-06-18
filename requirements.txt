@@ -1,7 +1,9 @@
-torch
-diffusers
-transformers
-flask
+fastapi
+uvicorn
+diffusers==0.24.0
+transformers==4.39.3
 safetensors
+torch==2.5.0
 accelerate
 Pillow
+huggingface_hub==0.19.4
